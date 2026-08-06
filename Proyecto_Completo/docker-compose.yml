@@ -1,0 +1,60 @@
+services:
+  # Base de datos MySQL
+  db:
+    image: mysql:8.0
+    container_name: empresa
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: empresa_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # Backend Flask
+  backend:
+    build:
+      context: ./BACKEND
+      dockerfile: Dockerfile
+    container_name: backend_api
+    environment:
+      DATABASE_URL: "mysql://root:root@db:3306/empresa_db"
+      FLASK_ENV: production
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./BACKEND:/app
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Frontend React
+  frontend:
+    build:
+      context: ./FRONTEND
+      dockerfile: Dockerfile
+    container_name: frontend_app
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+
+networks:
+  app-network:
+    driver: bridge
